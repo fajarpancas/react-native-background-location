@@ -1,5 +1,5 @@
 {
-  "name": "@vspirit/react-native-background-location",
+  "name": "@fajarpancas/react-native-background-location",
   "version": "1.0.0",
   "description": "Background location tracking native module for React Native",
   "main": "src/index.ts",
@@ -22,9 +22,9 @@
   ],
   "repository": {
     "type": "git",
-    "url": "https://github.com/vspirit/react-native-background-location.git"
+    "url": "https://github.com/fajarpancas/vspirit-react-native-background-location.git"
   },
-  "author": "vspirit",
+  "author": "fajarpancas",
   "license": "MIT",
   "peerDependencies": {
     "react-native": ">=0.70.0"
