@@ -20,7 +20,9 @@ static NSString *const kNotificationId       = @"VspiritLocationTracking";
 @property (strong, nonatomic) NSMutableArray *failedAPICalls;
 @property (nonatomic, assign) BOOL trackingStarted;
 @property (nonatomic, assign) BOOL isNetworkAvailable;
-@property (nonatomic, strong) id pathMonitor; // nw_path_monitor_t — stored as id for ARC compatibility
+@property (nonatomic, strong) id pathMonitor;
+@property (nonatomic, copy) RCTPromiseResolveBlock permissionResolve;
+@property (nonatomic, copy) RCTPromiseRejectBlock permissionReject;
 
 @end
 
@@ -121,6 +123,56 @@ RCT_EXPORT_METHOD(stopTracking) {
     [center removeAllDeliveredNotifications];
 }
 
+#pragma mark - Permissions
+
+RCT_EXPORT_METHOD(requestPermissions:(RCTPromiseResolveBlock)resolve rejecter:(RCTPromiseRejectBlock)reject) {
+    CLAuthorizationStatus status = [CLLocationManager authorizationStatus];
+
+    if (status == kCLAuthorizationStatusAuthorizedAlways) {
+        resolve(@(YES));
+        return;
+    }
+
+    self.permissionResolve = resolve;
+    self.permissionReject = reject;
+    [self.locationManager requestAlwaysAuthorization];
+}
+
+RCT_EXPORT_METHOD(checkPermissions:(RCTPromiseResolveBlock)resolve rejecter:(RCTPromiseRejectBlock)reject) {
+    CLAuthorizationStatus status = [CLLocationManager authorizationStatus];
+    resolve(@(status == kCLAuthorizationStatusAuthorizedAlways));
+}
+
+- (void)locationManager:(CLLocationManager *)manager didChangeAuthorizationStatus:(CLAuthorizationStatus)status {
+    [self handleAuthorizationStatus:status];
+}
+
+- (void)locationManagerDidChangeAuthorization:(CLLocationManager *)manager {
+    CLAuthorizationStatus status;
+#if __has_feature(objc_generics) || defined(__IPHONE_14_0)
+    if (@available(iOS 14.0, *)) {
+        status = manager.authorizationStatus;
+    } else {
+        status = [CLLocationManager authorizationStatus];
+    }
+#else
+    status = [CLLocationManager authorizationStatus];
+#endif
+    [self handleAuthorizationStatus:status];
+}
+
+- (void)handleAuthorizationStatus:(CLAuthorizationStatus)status {
+    if (self.permissionResolve) {
+        if (status == kCLAuthorizationStatusAuthorizedAlways) {
+            self.permissionResolve(@(YES));
+        } else if (status == kCLAuthorizationStatusDenied || status == kCLAuthorizationStatusRestricted) {
+            self.permissionResolve(@(NO));
+        }
+        self.permissionResolve = nil;
+        self.permissionReject = nil;
+    }
+}
+
 #pragma mark - Settings persistence
 
 - (void)loadSettings {
@@ -130,7 +182,21 @@ RCT_EXPORT_METHOD(stopTracking) {
 
     NSData *paramsData = [defaults objectForKey:kDefaultsParams];
     if (paramsData) {
-        self.additionalParams = [NSKeyedUnarchiver unarchiveObjectWithData:paramsData];
+        NSError *error;
+        NSDictionary *dict = [NSKeyedUnarchiver unarchivedObjectOfClass:[NSDictionary class] fromData:paramsData error:&error];
+        if (dict) {
+            self.additionalParams = dict;
+        }
+    }
+
+    NSData *failedData = [defaults objectForKey:kDefaultsFailedCalls];
+    if (failedData) {
+        NSError *error;
+        NSSet *classes = [NSSet setWithObjects:[NSArray class], [NSDictionary class], [NSString class], nil];
+        NSArray *calls = [NSKeyedUnarchiver unarchivedObjectOfClasses:classes fromData:failedData error:&error];
+        if ([calls isKindOfClass:[NSArray class]]) {
+            self.failedAPICalls = [calls mutableCopy];
+        }
     }
 }
 
@@ -140,8 +206,11 @@ RCT_EXPORT_METHOD(stopTracking) {
     [defaults setObject:self.header forKey:kDefaultsHeader];
 
     if (self.additionalParams) {
-        NSData *paramsData = [NSKeyedArchiver archivedDataWithRootObject:self.additionalParams];
-        [defaults setObject:paramsData forKey:kDefaultsParams];
+        NSError *error;
+        NSData *paramsData = [NSKeyedArchiver archivedDataWithRootObject:self.additionalParams requiringSecureCoding:NO error:&error];
+        if (paramsData) {
+            [defaults setObject:paramsData forKey:kDefaultsParams];
+        }
     }
     [defaults synchronize];
 }
@@ -169,6 +238,13 @@ RCT_EXPORT_METHOD(stopTracking) {
 
     [self sendLocationToAPIWithLatitude:currentLocation.coordinate.latitude
                               longitude:currentLocation.coordinate.longitude];
+
+    [self sendEventWithName:@"LocationUpdated" body:@{
+        @"latitude": @(currentLocation.coordinate.latitude),
+        @"longitude": @(currentLocation.coordinate.longitude),
+        @"timestamp": @([[NSDate date] timeIntervalSince1970])
+    }];
+
     self.lastLocation = currentLocation;
     self.lastAPICallTime = [NSDate date];
 }
@@ -235,9 +311,12 @@ RCT_EXPORT_METHOD(stopTracking) {
 
 - (void)storeFailedCall:(NSDictionary *)params {
     [self.failedAPICalls addObject:params];
-    NSData *data = [NSKeyedArchiver archivedDataWithRootObject:self.failedAPICalls];
-    [[NSUserDefaults standardUserDefaults] setObject:data forKey:kDefaultsFailedCalls];
-    [[NSUserDefaults standardUserDefaults] synchronize];
+    NSError *error;
+    NSData *data = [NSKeyedArchiver archivedDataWithRootObject:self.failedAPICalls requiringSecureCoding:NO error:&error];
+    if (data) {
+        [[NSUserDefaults standardUserDefaults] setObject:data forKey:kDefaultsFailedCalls];
+        [[NSUserDefaults standardUserDefaults] synchronize];
+    }
 }
 
 - (void)retryFailedAPICalls {
@@ -248,9 +327,12 @@ RCT_EXPORT_METHOD(stopTracking) {
         [self sendToAPIWithParams:params completion:^(BOOL success) {
             if (!success) {
                 [self.failedAPICalls addObject:params];
-                NSData *data = [NSKeyedArchiver archivedDataWithRootObject:self.failedAPICalls];
-                [[NSUserDefaults standardUserDefaults] setObject:data forKey:kDefaultsFailedCalls];
-                [[NSUserDefaults standardUserDefaults] synchronize];
+                NSError *error;
+                NSData *data = [NSKeyedArchiver archivedDataWithRootObject:self.failedAPICalls requiringSecureCoding:NO error:&error];
+                if (data) {
+                    [[NSUserDefaults standardUserDefaults] setObject:data forKey:kDefaultsFailedCalls];
+                    [[NSUserDefaults standardUserDefaults] synchronize];
+                }
             }
         }];
     }
@@ -259,7 +341,7 @@ RCT_EXPORT_METHOD(stopTracking) {
 #pragma mark - Events
 
 - (NSArray<NSString *> *)supportedEvents {
-    return @[kNotificationId];
+    return @[@"LocationUpdated"];
 }
 
 #pragma mark - Notification

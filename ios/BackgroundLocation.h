@@ -7,5 +7,7 @@
 
 - (void)startTracking:(NSString *)baseURL header:(NSString *)header additionalParams:(NSDictionary *)params;
 - (void)stopTracking;
+- (void)requestPermissions:(RCTPromiseResolveBlock)resolve rejecter:(RCTPromiseRejectBlock)reject;
+- (void)checkPermissions:(RCTPromiseResolveBlock)resolve rejecter:(RCTPromiseRejectBlock)reject;
 
 @end

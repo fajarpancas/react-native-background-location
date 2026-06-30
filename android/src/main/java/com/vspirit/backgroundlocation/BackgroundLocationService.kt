@@ -17,6 +17,8 @@ import android.os.Looper
 import android.os.PowerManager
 import android.util.Log
 import androidx.core.app.NotificationCompat
+import com.facebook.react.bridge.Arguments
+import com.facebook.react.modules.core.DeviceEventManagerModule
 import com.google.android.gms.location.*
 import okhttp3.*
 import okhttp3.MediaType.Companion.toMediaTypeOrNull
@@ -29,6 +31,10 @@ class BackgroundLocationService : Service() {
         private const val TAG = "BackgroundLocationService"
         private const val NOTIFICATION_ID = 12345
         private const val CHANNEL_ID = "vspirit_location_service_channel"
+        private const val PREFS_NAME = "VspiritBackgroundLocationPrefs"
+        private const val PREF_BASE_URL = "baseURL"
+        private const val PREF_HEADER = "header"
+        private const val PREF_PARAMS = "params"
 
         @JvmStatic var shouldRestart = true
         @JvmStatic var restartAttempts = 0
@@ -86,6 +92,7 @@ class BackgroundLocationService : Service() {
             shouldRestart = false
             restartAttempts = 0
             nextRestartDelayMs = 1000L
+            getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE).edit().clear().apply()
             stopForeground(true)
             stopSelf()
             return START_NOT_STICKY
@@ -119,10 +126,21 @@ class BackgroundLocationService : Service() {
             return START_NOT_STICKY
         }
 
-        intent?.let {
-            apiBaseUrl = it.getStringExtra("baseURL")
-            header = it.getStringExtra("header")
-            it.getStringExtra("params")?.let { p -> additionalParams = parseParams(p) }
+        val prefs = getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+
+        if (intent?.hasExtra("baseURL") == true) {
+            apiBaseUrl = intent.getStringExtra("baseURL")
+            header = intent.getStringExtra("header")
+            intent.getStringExtra("params")?.let { p -> additionalParams = parseParams(p) }
+            prefs.edit()
+                .putString(PREF_BASE_URL, apiBaseUrl)
+                .putString(PREF_HEADER, header)
+                .putString(PREF_PARAMS, intent.getStringExtra("params"))
+                .apply()
+        } else {
+            apiBaseUrl = prefs.getString(PREF_BASE_URL, null)
+            header = prefs.getString(PREF_HEADER, null)
+            prefs.getString(PREF_PARAMS, null)?.let { p -> additionalParams = parseParams(p) }
         }
 
         try {
@@ -154,12 +172,15 @@ class BackgroundLocationService : Service() {
     }
 
     private fun sendLocationToAPI(latitude: Double, longitude: Double) {
+        val timestamp = System.currentTimeMillis() / 1000
+        emitLocationEvent(latitude, longitude, timestamp)
+
         val url = apiBaseUrl
         val currentHeader = header
         if (url.isNullOrBlank() || !(url.startsWith("http://") || url.startsWith("https://"))) return
         if (currentHeader == null) return
 
-        val payload = buildPayload(latitude, longitude, System.currentTimeMillis() / 1000)
+        val payload = buildPayload(latitude, longitude, timestamp)
 
         if (!isNetworkAvailable()) {
             failedRequests.add(payload)
@@ -167,6 +188,18 @@ class BackgroundLocationService : Service() {
         }
 
         enqueueRequest(url, currentHeader, payload)
+    }
+
+    private fun emitLocationEvent(latitude: Double, longitude: Double, timestamp: Long) {
+        BackgroundLocationModule.reactContextInstance?.let { ctx ->
+            val params = Arguments.createMap().apply {
+                putDouble("latitude", latitude)
+                putDouble("longitude", longitude)
+                putDouble("timestamp", timestamp.toDouble())
+            }
+            ctx.getJSModule(DeviceEventManagerModule.RCTDeviceEventEmitter::class.java)
+                .emit("LocationUpdated", params)
+        }
     }
 
     private fun buildPayload(latitude: Double, longitude: Double, timestamp: Long): JSONObject =
