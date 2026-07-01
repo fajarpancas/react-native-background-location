@@ -13,8 +13,7 @@
     "plugin",
     "*.podspec",
     "expo-module.config.js",
-    "react-native.config.js",
-    "!react-native-background-location.podspec"
+    "react-native.config.js"
   ],
   "keywords": [
     "react-native",

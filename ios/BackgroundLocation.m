@@ -262,8 +262,8 @@ RCT_EXPORT_METHOD(checkPermissions:(RCTPromiseResolveBlock)resolve rejecter:(RCT
 
 - (NSDictionary *)buildPayloadWithLatitude:(double)latitude longitude:(double)longitude {
     NSMutableDictionary *payload = [NSMutableDictionary dictionary];
-    payload[@"latitude"]  = [NSString stringWithFormat:@"%f", latitude];
-    payload[@"longitude"] = [NSString stringWithFormat:@"%f", longitude];
+    payload[@"latitude"]  = @(latitude);
+    payload[@"longitude"] = @(longitude);
 
     if (self.additionalParams) {
         [payload addEntriesFromDictionary:self.additionalParams];
