@@ -1,4 +1,4 @@
-import { Platform, NativeModules, NativeEventEmitter, PermissionsAndroid } from 'react-native';
+import { Platform, NativeModules, NativeEventEmitter, PermissionsAndroid, EmitterSubscription } from 'react-native';
 
 const { BackgroundLocationModule, BackgroundLocation } = NativeModules;
 
@@ -7,7 +7,40 @@ const NativeBackgroundLocation = Platform.select({
   ios: BackgroundLocation,
 });
 
-export const backgroundLocationEvents = new NativeEventEmitter(NativeBackgroundLocation);
+const createEventEmitter = (): NativeEventEmitter | null => {
+  if (!NativeBackgroundLocation) return null;
+  try {
+    return new NativeEventEmitter(NativeBackgroundLocation);
+  } catch {
+    return null;
+  }
+};
+
+let eventEmitter: NativeEventEmitter | null;
+
+export const backgroundLocationEvents = {
+  addListener: (eventType: string, listener: (...args: any[]) => any, context?: any): EmitterSubscription => {
+    if (!eventEmitter) eventEmitter = createEventEmitter();
+    if (eventEmitter) return eventEmitter.addListener(eventType, listener, context);
+    return { remove: () => {} } as EmitterSubscription;
+  },
+  removeAllListeners: (eventType: string) => {
+    if (!eventEmitter) eventEmitter = createEventEmitter();
+    eventEmitter?.removeAllListeners(eventType);
+  },
+  listeners: (eventType: string) => {
+    if (!eventEmitter) eventEmitter = createEventEmitter();
+    return eventEmitter?.listeners(eventType) ?? [];
+  },
+  emit: (eventType: string, ...params: any[]) => {
+    if (!eventEmitter) eventEmitter = createEventEmitter();
+    eventEmitter?.emit(eventType, ...params);
+  },
+  removeSubscription: (subscription: EmitterSubscription) => {
+    if (!eventEmitter) eventEmitter = createEventEmitter();
+    eventEmitter?.removeSubscription(subscription);
+  },
+};
 
 export const LocationUpdatedEvent = 'LocationUpdated';
 
