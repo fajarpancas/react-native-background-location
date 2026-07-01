@@ -43,11 +43,30 @@ export const backgroundLocationEvents = {
 };
 
 export const LocationUpdatedEvent = 'LocationUpdated';
+export const ApiRequestEvent = 'ApiRequest';
+export const ApiResponseEvent = 'ApiResponse';
+export const ApiErrorEvent = 'ApiError';
 
 export interface LocationEvent {
   latitude: number;
   longitude: number;
   timestamp: number;
+}
+
+export interface ApiRequestEventPayload {
+  url: string;
+  body: string;
+}
+
+export interface ApiResponseEventPayload {
+  url: string;
+  statusCode: number;
+  body: string;
+}
+
+export interface ApiErrorEventPayload {
+  url: string;
+  error: string;
 }
 
 export const startTracking = (

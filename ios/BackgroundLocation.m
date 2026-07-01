@@ -296,12 +296,21 @@ RCT_EXPORT_METHOD(checkPermissions:(RCTPromiseResolveBlock)resolve rejecter:(RCT
     }
     request.HTTPBody = httpBody;
 
+    [self sendEventWithName:@"ApiRequest" body:@{
+        @"url": self.apiBaseURL ?: @"",
+        @"body": [params description] ?: @"{}",
+    }];
+
     NSLog(@"[BackgroundLocation] REQUEST  POST %@  body: %@", self.apiBaseURL, [params description]);
 
     [[NSURLSession.sharedSession dataTaskWithRequest:request
                                   completionHandler:^(NSData *data, NSURLResponse *response, NSError *error) {
         if (error) {
             NSLog(@"[BackgroundLocation] RESPONSE  ERROR  %@", error.localizedDescription);
+            [self sendEventWithName:@"ApiError" body:@{
+                @"url": self.apiBaseURL ?: @"",
+                @"error": error.localizedDescription ?: @"Unknown error",
+            }];
             [self storeFailedCall:params];
             if (completion) completion(NO);
             return;
@@ -309,6 +318,11 @@ RCT_EXPORT_METHOD(checkPermissions:(RCTPromiseResolveBlock)resolve rejecter:(RCT
         NSInteger statusCode = [(NSHTTPURLResponse *)response statusCode];
         NSString *responseBody = data ? [[NSString alloc] initWithData:data encoding:NSUTF8StringEncoding] : @"(empty)";
         NSLog(@"[BackgroundLocation] RESPONSE  %ld  body: %@", (long)statusCode, responseBody);
+        [self sendEventWithName:@"ApiResponse" body:@{
+            @"url": self.apiBaseURL ?: @"",
+            @"statusCode": @(statusCode),
+            @"body": responseBody,
+        }];
         BOOL ok = (statusCode == 200 || statusCode == 201);
         if (!ok) [self storeFailedCall:params];
         if (completion) completion(ok);
@@ -347,7 +361,7 @@ RCT_EXPORT_METHOD(checkPermissions:(RCTPromiseResolveBlock)resolve rejecter:(RCT
 #pragma mark - Events
 
 - (NSArray<NSString *> *)supportedEvents {
-    return @[@"LocationUpdated"];
+    return @[@"LocationUpdated", @"ApiRequest", @"ApiResponse", @"ApiError"];
 }
 
 #pragma mark - Notification

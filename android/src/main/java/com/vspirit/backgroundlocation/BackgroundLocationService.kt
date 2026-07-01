@@ -218,21 +218,41 @@ class BackgroundLocationService : Service() {
             .addHeader("Authorization", authHeader)
             .build()
 
+        emitApiEvent("ApiRequest", mapOf("url" to url, "body" to payload.toString()))
         Log.d(TAG, "REQUEST  POST $url  body: ${payload.toString()}")
 
         client.newCall(request).enqueue(object : Callback {
             override fun onFailure(call: Call, e: IOException) {
                 Log.e(TAG, "RESPONSE  ERROR  ${e.message}")
+                emitApiEvent("ApiError", mapOf("url" to url, "error" to (e.message ?: "Unknown error")))
                 failedRequests.add(payload)
             }
             override fun onResponse(call: Call, response: Response) {
                 val bodyString = response.body?.string() ?: "(empty)"
                 Log.d(TAG, "RESPONSE  ${response.code}  body: $bodyString")
+                emitApiEvent("ApiResponse", mapOf("url" to url, "statusCode" to response.code, "body" to bodyString))
                 if (!response.isSuccessful) {
                     failedRequests.add(payload)
                 }
             }
         })
+    }
+
+    private fun emitApiEvent(eventName: String, data: Map<String, Any>) {
+        BackgroundLocationModule.reactContextInstance?.let { ctx ->
+            val params = Arguments.createMap()
+            data.forEach { (k, v) ->
+                when (v) {
+                    is String -> params.putString(k, v)
+                    is Int -> params.putInt(k, v)
+                    is Long -> params.putDouble(k, v.toDouble())
+                    is Double -> params.putDouble(k, v)
+                    is Boolean -> params.putBoolean(k, v)
+                }
+            }
+            ctx.getJSModule(DeviceEventManagerModule.RCTDeviceEventEmitter::class.java)
+                .emit(eventName, params)
+        }
     }
 
     private fun retryFailedRequests() {
