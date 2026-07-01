@@ -48,30 +48,51 @@ cd ios && pod install
 
 > Baris Podfile ini cukup ditambahkan **sekali saja**. Update library selanjutnya cukup `npm install` tanpa edit Podfile lagi.
 
-### Expo (monorepo / npm workspaces)
+### Expo + Monorepo (npm workspaces)
 
-Jika project Anda menggunakan npm workspaces, tambahkan library sebagai workspace di root `package.json`:
+Di root monorepo (`package.json`), daftarkan library sebagai workspace:
 
 ```json
-"workspaces": [
-  "app",
-  "../react-native-background-location"
-]
+{
+  "workspaces": [
+    "app",
+    "../react-native-background-location"
+  ]
+}
 ```
 
-Hapus `file:` dependency dari app, ganti dengan:
+Di `app/package.json`, ganti dependency dengan:
 
 ```json
 "@fajarpancas/react-native-background-location": "*"
+```
+
+**Podfile** — karena library di-hoist ke root `node_modules`, path pod harus ngarah ke root:
+
+```ruby
+  pod 'VspiritBackgroundLocation', :path => '../../node_modules/@fajarpancas/react-native-background-location/ios'
+```
+
+**Metro config** — tambahkan library ke `extraNodeModules` agar Metro bisa resolve:
+
+```js
+config.resolver.extraNodeModules = {
+  ...config.resolver.extraNodeModules,
+  '@fajarpancas/react-native-background-location': path.resolve(
+    monorepoRoot,
+    'node_modules/@fajarpancas/react-native-background-location'
+  ),
+};
 ```
 
 Kemudian:
 
 ```bash
 npm install
+cd app/ios && pod install
 ```
 
-Library akan ter-link sebagai symlink — perubahan langsung terlihat tanpa `npm install` ulang.
+Semua config di atas cukup **sekali saja**. Setelah itu, perubahan di library langsung terlihat via symlink workspace.
 
 ### iOS Setup
 
