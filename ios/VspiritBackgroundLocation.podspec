@@ -1,6 +1,6 @@
 require "json"
 
-package = JSON.parse(File.read(File.join(__dir__, "package.json")))
+package = JSON.parse(File.read(File.join(__dir__, "..", "package.json")))
 
 Pod::Spec.new do |s|
   s.name         = "VspiritBackgroundLocation"
@@ -12,7 +12,7 @@ Pod::Spec.new do |s|
   s.platforms    = { :ios => "12.0" }
   s.source       = { :git => "https://github.com/fajarpancas/vspirit-react-native-background-location.git", :tag => "#{s.version}" }
 
-  s.source_files = "ios/**/*.{h,m}"
+  s.source_files = "**/*.{h,m}"
   s.frameworks   = "CoreLocation", "Network", "UserNotifications"
 
   s.dependency "React-Core"
