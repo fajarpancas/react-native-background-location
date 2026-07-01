@@ -53,9 +53,9 @@ export interface LocationEvent {
 export const startTracking = (
   baseUrl: string,
   header: string,
-  params: Record<string, unknown>,
+  params?: Record<string, unknown>,
 ): void => {
-  NativeBackgroundLocation?.startTracking(baseUrl, header, params);
+  NativeBackgroundLocation?.startTracking(baseUrl, header, params ?? {});
 };
 
 export const stopTracking = (): void => {

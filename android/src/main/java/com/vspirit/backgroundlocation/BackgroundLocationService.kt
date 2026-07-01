@@ -204,12 +204,10 @@ class BackgroundLocationService : Service() {
 
     private fun buildPayload(latitude: Double, longitude: Double, timestamp: Long): JSONObject =
         JSONObject().apply {
-            put("job_tracking", JSONObject().apply {
-                put("latitude", latitude)
-                put("longitude", longitude)
-                put("timestamp", timestamp)
-                additionalParams?.forEach { (k, v) -> put(k, v) }
-            })
+            put("latitude", latitude)
+            put("longitude", longitude)
+            put("timestamp", timestamp)
+            additionalParams?.forEach { (k, v) -> put(k, v) }
         }
 
     private fun enqueueRequest(url: String, authHeader: String, payload: JSONObject) {
@@ -220,12 +218,19 @@ class BackgroundLocationService : Service() {
             .addHeader("Authorization", authHeader)
             .build()
 
+        Log.d(TAG, "REQUEST  POST $url  body: ${payload.toString()}")
+
         client.newCall(request).enqueue(object : Callback {
             override fun onFailure(call: Call, e: IOException) {
+                Log.e(TAG, "RESPONSE  ERROR  ${e.message}")
                 failedRequests.add(payload)
             }
             override fun onResponse(call: Call, response: Response) {
-                if (!response.isSuccessful) failedRequests.add(payload)
+                val bodyString = response.body?.string() ?: "(empty)"
+                Log.d(TAG, "RESPONSE  ${response.code}  body: $bodyString")
+                if (!response.isSuccessful) {
+                    failedRequests.add(payload)
+                }
             }
         })
     }

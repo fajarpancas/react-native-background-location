@@ -66,18 +66,14 @@ Starts background location tracking.
 |-----------|----------|----------|-------------|
 | `baseUrl` | `string` | yes      | API endpoint to POST location data (e.g. `https://api.example.com/tracking`) |
 | `header`  | `string` | yes      | Full value for the `Authorization` header (e.g. `Bearer eyJhbG...`) |
-| `params`  | `object` | yes      | Additional params merged into the payload |
+| `params`  | `object` | no       | Optional additional params merged into the payload |
 
 The payload sent to your API:
 
 ```json
 {
-  "job_tracking": {
-    "latitude": "-6.123456",
-    "longitude": "106.123456",
-    "timestamp": "1719876543",
-    "...your additional params": "..."
-  }
+  "latitude": "-6.123456",
+  "longitude": "106.123456"
 }
 ```
 

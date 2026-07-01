@@ -261,20 +261,20 @@ RCT_EXPORT_METHOD(checkPermissions:(RCTPromiseResolveBlock)resolve rejecter:(RCT
 }
 
 - (NSDictionary *)buildPayloadWithLatitude:(double)latitude longitude:(double)longitude {
-    NSMutableDictionary *jobTracking = [NSMutableDictionary dictionary];
-    jobTracking[@"latitude"]  = [NSString stringWithFormat:@"%f", latitude];
-    jobTracking[@"longitude"] = [NSString stringWithFormat:@"%f", longitude];
-    jobTracking[@"timestamp"] = [NSString stringWithFormat:@"%f", [[NSDate date] timeIntervalSince1970]];
+    NSMutableDictionary *payload = [NSMutableDictionary dictionary];
+    payload[@"latitude"]  = [NSString stringWithFormat:@"%f", latitude];
+    payload[@"longitude"] = [NSString stringWithFormat:@"%f", longitude];
 
     if (self.additionalParams) {
-        [jobTracking addEntriesFromDictionary:self.additionalParams];
+        [payload addEntriesFromDictionary:self.additionalParams];
     }
 
-    return @{@"job_tracking": jobTracking};
+    return payload;
 }
 
 - (void)sendToAPIWithParams:(NSDictionary *)params completion:(void (^)(BOOL success))completion {
     if (self.apiBaseURL.length == 0) {
+        NSLog(@"[BackgroundLocation] API call skipped — no baseURL");
         if (completion) completion(NO);
         return;
     }
@@ -287,22 +287,28 @@ RCT_EXPORT_METHOD(checkPermissions:(RCTPromiseResolveBlock)resolve rejecter:(RCT
         [request setValue:self.header forHTTPHeaderField:@"Authorization"];
     }
 
-    NSError *error;
-    NSData *httpBody = [NSJSONSerialization dataWithJSONObject:params options:0 error:&error];
-    if (error || !httpBody) {
+    NSError *jsonError;
+    NSData *httpBody = [NSJSONSerialization dataWithJSONObject:params options:0 error:&jsonError];
+    if (jsonError || !httpBody) {
+        NSLog(@"[BackgroundLocation] API call failed — JSON serialization error: %@", jsonError.localizedDescription);
         if (completion) completion(NO);
         return;
     }
     request.HTTPBody = httpBody;
 
+    NSLog(@"[BackgroundLocation] REQUEST  POST %@  body: %@", self.apiBaseURL, [params description]);
+
     [[NSURLSession.sharedSession dataTaskWithRequest:request
                                   completionHandler:^(NSData *data, NSURLResponse *response, NSError *error) {
         if (error) {
+            NSLog(@"[BackgroundLocation] RESPONSE  ERROR  %@", error.localizedDescription);
             [self storeFailedCall:params];
             if (completion) completion(NO);
             return;
         }
         NSInteger statusCode = [(NSHTTPURLResponse *)response statusCode];
+        NSString *responseBody = data ? [[NSString alloc] initWithData:data encoding:NSUTF8StringEncoding] : @"(empty)";
+        NSLog(@"[BackgroundLocation] RESPONSE  %ld  body: %@", (long)statusCode, responseBody);
         BOOL ok = (statusCode == 200 || statusCode == 201);
         if (!ok) [self storeFailedCall:params];
         if (completion) completion(ok);
