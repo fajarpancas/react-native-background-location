@@ -61,7 +61,7 @@ RCT_EXPORT_MODULE();
 - (void)setupNetworkMonitor {
     if (@available(iOS 12.0, *)) {
         nw_path_monitor_t monitor = nw_path_monitor_create();
-        self.pathMonitor = (__bridge_transfer id)monitor;
+        self.pathMonitor = monitor;
 
         __weak typeof(self) weakSelf = self;
         nw_path_monitor_set_update_handler(monitor, ^(nw_path_t path) {
@@ -423,7 +423,8 @@ didReceiveNotificationResponse:(UNNotificationResponse *)response
 - (void)dealloc {
     if (@available(iOS 12.0, *)) {
         if (self.pathMonitor) {
-            nw_path_monitor_cancel((__bridge nw_path_monitor_t)self.pathMonitor);
+            nw_path_monitor_t monitor = (nw_path_monitor_t)self.pathMonitor;
+            nw_path_monitor_cancel(monitor);
         }
     }
 }
