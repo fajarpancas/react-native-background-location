@@ -21,15 +21,59 @@ React Native native module for background location tracking on iOS and Android. 
 
 ## Installation
 
+### React Native (bare workflow)
+
+```bash
+npm install @fajarpancas/react-native-background-location
+cd ios && pod install
+```
+
+### Expo (development build)
+
 ```bash
 npm install @fajarpancas/react-native-background-location
 ```
 
-### iOS
+Kemudian edit `ios/Podfile`, tambahkan baris ini **setelah** `use_expo_modules!`:
+
+```ruby
+  pod 'VspiritBackgroundLocation', :path => '../node_modules/@fajarpancas/react-native-background-location/ios'
+```
+
+Lalu:
 
 ```bash
 cd ios && pod install
 ```
+
+> Baris Podfile ini cukup ditambahkan **sekali saja**. Update library selanjutnya cukup `npm install` tanpa edit Podfile lagi.
+
+### Expo (monorepo / npm workspaces)
+
+Jika project Anda menggunakan npm workspaces, tambahkan library sebagai workspace di root `package.json`:
+
+```json
+"workspaces": [
+  "app",
+  "../react-native-background-location"
+]
+```
+
+Hapus `file:` dependency dari app, ganti dengan:
+
+```json
+"@fajarpancas/react-native-background-location": "*"
+```
+
+Kemudian:
+
+```bash
+npm install
+```
+
+Library akan ter-link sebagai symlink — perubahan langsung terlihat tanpa `npm install` ulang.
+
+### iOS Setup
 
 Add keys to `ios/App/Info.plist`:
 
@@ -44,7 +88,7 @@ Add keys to `ios/App/Info.plist`:
 </array>
 ```
 
-### Android
+### Android Setup
 
 Add permissions to `android/app/src/main/AndroidManifest.xml`:
 
