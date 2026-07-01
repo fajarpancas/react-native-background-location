@@ -10,6 +10,7 @@
     "src",
     "android",
     "ios",
+    "plugin",
     "*.podspec",
     "react-native.config.js"
   ],
